@@ -2,6 +2,11 @@
 ; this program is executed from WRAM
 ; this is the main utility program of the project
 
+; other ideas:
+; custom palette that carry into dmg games
+; preconditioning the system state before branching
+; sub menus are gonna be needed for all this haha
+
 ; tell wla-gb about the WRAM slots that it is executed from
 .memorymap
 	defaultslot 1
@@ -56,11 +61,53 @@ start:
 	di				; we can't use interrupts
 	ld	sp, $dfff		; set stack to top of wram1
 	call	disable_lcd		; turn off the lcd first
+	ldh	a, (r_system_id)	; check for cgb
+	cp	$11			; and if so
+	call	z, init_cgb		; init the color functions
 	call	init_lcd		; init the screen
 	call	draw_init_screen	; draw the menu options and stuff
 	xor	a			; start the menu index at 0
 	ldh	(r_menu_index), a
 	jr	+			; already drew the menu items so skip
+
+; init the cgb functions
+init_cgb:
+	; load bg color palettes
+	ld	a, $80			; start at 0 and auto increment
+	ldh	(R_BCPS), a		; set the access settings
+	ld	hl, palettes		; source of the color palette data
+	ld	b, _sizeof_palettes	; length of the palette data
+-	ldi	a, (hl)			; grab a byte
+	ldh	(R_BCPD), a		; store the byte
+	dec	b			; dec bytes remaining
+	jr	nz, -			; loop until done
+
+	; load obj color palettes
+	ld	a, $80			; start at 0 and auto increment
+	ldh	(R_OCPS), a		; set the access settings
+	ld	hl, palettes		; source of the color palette data
+	ld	b, _sizeof_palettes	; length of the palette data
+-	ldi	a, (hl)			; grab a byte
+	ldh	(R_OCPD), a		; store the byte
+	dec	b			; dec bytes remaining
+	jr	nz, -			; loop until done
+
+	; load bg attributes
+	ld	a, 1			; vram bank 1
+	ldh	(R_VBK), a		; switch to vram bank 1
+	ld	hl, $9800		; destination of the bg map attributes
+	ld	bc, $400		; just fill the whole thing why not
+-	ld	a, $00			; blank attributes, and first palette
+	ldi	(hl), a			; store the attributes
+	dec	bc			; dec the remaining bytes counter
+	ld	a, b			; check it
+	or	c			; to see if its 0
+	jr	nz, -			; and loop until it is
+	ld	a, 0			; vram bank 0
+	ldh	(R_VBK), a		; switch back to vram bank 0
+
+	; done
+	ret
 
 ; enter the menu screen
 enter_menu:
@@ -142,7 +189,7 @@ menu_selection:
 
 ; when you select to execte the inserted cart
 execute_cart:
-	; do some initializations
+	; prepare to branch
 	call	wait_for_lcd		; wait for the lcd a couple times
 	call	wait_for_lcd		; wait for the lcd a couple times
 	ldh	a, (r_system_id)	; restore the system signature
@@ -435,6 +482,11 @@ init_lcd:
 font:
 .incbin "font.chr"
 font_end:
+
+; color palettes for cgb
+palettes:
+.dw $739f $aabd $557a $0007
+palettes_end:
 
 ; these are the menu option names
 ; array is $ff terminated

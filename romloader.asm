@@ -42,10 +42,13 @@ entry:
 
 ; start
 start:
-	; disable interrupts
+	; prepare
 	di				; interrupt vectors are in cart
 					; and we need to be cart independant
 					; so we can't use interrupts at all
+	ld	sp, $dfff		; setup the stack real quick
+	push	af			; for the purpose of storing a
+					; which contains info about the system
 
 	; prepare copy gbboot into wram
 	ld	hl, wram_image		; source: here in rom
@@ -62,7 +65,8 @@ start:
 	jr	nz, -			; and keep copying until done
 
 	; and now branch to the freshly copied gbboot in wram!
-	jp	$c000
+	pop	af			; but restore the system info first
+	jp	$c000			; and go!
 
 ; include the wram image of gbboot here:
 wram_image:
