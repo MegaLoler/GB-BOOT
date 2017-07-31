@@ -20,7 +20,7 @@
 	cartridgetype 0
 	ramsize 0
 	nintendologo
-	romdmg
+	romgbc
 .endgb
 
 ; includes

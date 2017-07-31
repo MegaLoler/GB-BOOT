@@ -40,6 +40,8 @@
 .define r_pad $80			; continuous pad
 .define r_pad_instant $81		; intantaneous pad
 .define r_menu_index $82		; hram var for current menu item index
+.define r_system_id $83			; stores the register a on startup
+.define str_buf $d000			; 16 byte string buf
 
 ; first bank
 .bank 0 slot 0
@@ -50,6 +52,7 @@
 ; start
 start:
 	; first things first
+	ldh	(r_system_id), a	; store the system signature
 	di				; we can't use interrupts
 	ld	sp, $dfff		; set stack to top of wram1
 	call	disable_lcd		; turn off the lcd first
@@ -73,6 +76,7 @@ enter_menu:
 +	xor	a
 	ldh	(r_pad), a
 	ldh	(r_pad_instant), a
+	call	read_joypad		; get the button presses to begin with
 
 	; draw the selection token
 	call	draw_menu_index
@@ -97,10 +101,10 @@ menu_selection:
 	jr	z, menu_selection	; nothing pressed, loop
 
 	; a button was pressed on a menu item
-	ld	a, (r_menu_index)	; grab the selected index
+	ldh	a, (r_menu_index)	; grab the selected index
 	cp	$00			; find out which was pressed
 	jr	nz, +			; yee, nee?
-	call	unimplemented		; this is it
+	call	cart_info		; this is it
 +	cp	$01			; find out which was pressed
 	jr	nz, +			; yee, nee?
 	call	unimplemented		; this is it
@@ -124,7 +128,7 @@ menu_selection:
 	call	unimplemented		; this is it
 +	cp	$08			; find out which was pressed
 	jr	nz, +			; yee, nee?
-	call	unimplemented		; this is it
+	call	execute_cart		; this is it
 +	cp	$09			; find out which was pressed
 	jr	nz, +			; yee, nee?
 	call	unimplemented		; this is it
@@ -136,13 +140,75 @@ menu_selection:
 	call	unimplemented		; this is it
 	jr	menu_selection		; loop
 
+; when you select to execte the inserted cart
+execute_cart:
+	; do some initializations
+	call	wait_for_lcd		; wait for the lcd a couple times
+	call	wait_for_lcd		; wait for the lcd a couple times
+	ldh	a, (r_system_id)	; restore the system signature
+	jp	$100			; branch!
+
+; choose to display information from the inserted cart header
+cart_info:
+
+; prints out the title of the inserted cartridge on the top line
+print_cart_title:
+	; grab the cart title
+	ld	hl, $0134			; source: title in cart
+	ld	de, str_buf			; dest: string buffer
+	ld	b, $10				; length of buffer
+-	ldi	a, (hl)				; grab char
+	and	a				; check it
+	jr	z, +				; is it the end of the string?
+	; do this conversion from ascii better later! ! !
+	ld	c, 55				; convert from ascii
+	sub	c				; translate
+	ld	(de), a				; nope so store the char
+	inc	de				; inc the char pointer
+	dec	b				; and dec remaining byte count
+	jr	nz, -				; and loop til done
+
+	; fill remainder of buffer with string termination
++	ld	a, $2d				; string term = $2d
+-	ld	(de), a				; put it in the buffer
+	inc	de				; increment the char pointer
+	dec	b				; decrement the bytes remaining count
+	jr	nz, -				; loop til done
+
+	; print the string
+	call	wait_for_lcd			; wait for the screen
+	ld	de, cart_name_label		; first the "NAME:" label
+	ld	hl, $9800			; destination in vram
+	call	print_string			; print it
+	ld	hl, $9805			; and then the title string itself
+
+; prints str_buf in vram at hl
+print_str_buf:
+	ld	de, str_buf			; source is str_buf
+	ld	b, $10				; length of buffer
+
+; prints string into vram at hl from source de
+print_string:
+	; grab char
+-	ld	a, (de)			; grab a character
+	inc	de			; and inc the pointer
+	cp	$2d			; is it the end of the string?
+	ret	z			; then we are done here
+
+	; otherwise just copy the char
+	ldi	(hl), a			; put the char in place
+	jr	-			; next char
+
+	; done here
+	ret
+
 ; when you select a yet to be implemented function from the menu
 unimplemented:
 	; print the message
 	call	wait_for_lcd			; wait for the screen
 	ld	de, unimplemented_message	; the characters to copy
 	ld	hl, $9800			; where to print the text
-	jr	print_list			; print it
+	jp	print_list			; print it
 
 ; gets continuous joypad input on $ff80
 ; and instantaneous joypad input on $ff81
@@ -213,7 +279,7 @@ undraw_menu_index:
 
 ; go up in the menu
 dec_menu_index:
-	ldh	a, (r_menu_index)		; grab the menu index
+	ldh	a, (r_menu_index)	; grab the menu index
 	dec	a			; decrement it
 	cp	$ff			; overflow?
 	jr	nz, change_menu_index	; if so
@@ -222,7 +288,7 @@ dec_menu_index:
 
 ; go down in the menu
 inc_menu_index:
-	ldh	a, (r_menu_index)		; grab the menu index
+	ldh	a, (r_menu_index)	; grab the menu index
 	inc	a			; increment it
 	cp	$c			; overflow?
 	jr	nz, change_menu_index	; if so
@@ -234,7 +300,7 @@ change_menu_index:
 	call	wait_for_lcd		; first wait till vblank
 	call	undraw_menu_index	; first hide the current char
 	pop	af			; grab a back
-	ldh	(r_menu_index), a		; save the menu index
+	ldh	(r_menu_index), a	; save the menu index
 
 ; draws the token indicating the selected menu item
 draw_menu_index:
@@ -243,7 +309,7 @@ draw_menu_index:
 ; a = character
 render_menu_index:
 	push	af			; save the character to draw
-	ldh	a, (r_menu_index)		; grab the index
+	ldh	a, (r_menu_index)	; grab the index
 	inc	a			; make 0 count for 1
 	ld	b, a			; put it on b
 	ld	hl, ($9801 + $20 * 3)	; where to put it
@@ -400,3 +466,7 @@ unimplemented_message:
 .asc "NOT YET IMPLEMENTED $"
 .asc "  TRY AGAIN, SILLY! $"
 .asc $ff
+
+; some various lone strings
+cart_name_label:
+.asc "NAME:$"
