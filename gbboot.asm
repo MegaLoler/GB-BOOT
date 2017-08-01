@@ -6,6 +6,10 @@
 ; custom palette that carry into dmg games
 ; preconditioning the system state before branching
 ; sub menus are gonna be needed for all this haha
+; serial console mode, in and out
+; sound test mode
+; arbitrary reads and writes
+; image viewer
 
 ; tell wla-gb about the WRAM slots that it is executed from
 .memorymap
@@ -154,10 +158,10 @@ menu_selection:
 	call	cart_info		; this is it
 +	cp	$01			; find out which was pressed
 	jr	nz, +			; yee, nee?
-	call	unimplemented		; this is it
+	call	dump_rom		; this is it
 +	cp	$02			; find out which was pressed
 	jr	nz, +			; yee, nee?
-	call	unimplemented		; this is it
+	call	dump_save		; this is it
 +	cp	$03			; find out which was pressed
 	jr	nz, +			; yee, nee?
 	call	unimplemented		; this is it
@@ -186,6 +190,76 @@ menu_selection:
 	jr	nz, menu_selection		; yee, nee?
 	call	unimplemented		; this is it
 	jr	menu_selection		; loop
+
+; when you choose to dump the rom over serial
+dump_rom:
+	; print the message
+	call	wait_for_lcd			; wait for the screen
+	ld	de, rom_dump_message		; the characters to copy
+	ld	hl, $9800			; where to print the text
+	call	print_list			; print it
+
+	; prepare to dump
+	ld	hl, $0000		; source
+	ld	bc, $8000		; size
+	call	dump			; dump it
+
+	; done
+	call	wait_for_lcd			; wait for the screen
+	ld	de, rom_dump_done_message	; the characters to copy
+	ld	hl, $9800			; where to print the text
+	call	print_list			; print it
+	ret
+
+; when you choose to dump the save over serial
+dump_save:
+	; print the message
+	call	wait_for_lcd			; wait for the screen
+	ld	de, save_dump_message		; the characters to copy
+	ld	hl, $9800			; where to print the text
+	call	print_list			; print it
+
+	; prepare to dump
+	ld	hl, $a000		; source
+	ld	bc, $2000		; size
+	call	dump			; dump it
+
+	; done
+	call	wait_for_lcd			; wait for the screen
+	ld	de, save_dump_done_message	; the characters to copy
+	ld	hl, $9800			; where to print the text
+	call	print_list			; print it
+	ret
+
+; dump a memory region over serial
+; start = hl
+; length = bc
+dump:
+-	ldi	a, (hl)			; load a byte
+	call	send_byte		; send the byte over serial
+	dec	bc			; dec the bytes remaining counter
+	ld	a, b			; check bc
+	or	c			; to see if its done yet
+	jr	nz, -			; and loop until done
+	ret				; done
+
+; sends a single byte over serial
+; data = a
+send_byte:
+	push	af
+	call	wait_for_serial		; wait for it to send
+	pop	af
+	ldh	(R_SB), a		; load the byte to send
+	ld	a, $83			; internal clock, fast speed if possible
+	ldh	(R_SC), a		; send it
+	ret				; done here
+
+; wait until a serial byte has been transfered
+wait_for_serial:
+-	ldh	a, (R_SC)		; get the control byte to check
+	bit	7, a			; see if the transfer is still active
+	jr	nz, -			; wait more if it is
+	ret
 
 ; when you select to execte the inserted cart
 execute_cart:
@@ -510,6 +584,45 @@ menu_items:
 .asc "   SRAM SIZE:$"
 .asc "$"
 .asc "GB BOOT BY MEGALOLER$"
+.asc $ff
+
+; beginning to dump save
+save_dump_message:
+.asc "DUMPING CART SAVE...$"
+.asc "   PRESS B TO CANCEL$"
+.asc "  BANK: 00 OF 00    $"
+.asc $ff
+
+; canceled save dump
+save_dump_canceled_message:
+.asc "DUMPING CART SAVE   $"
+.asc "    DUMP CANCELED   $"
+.asc $ff
+
+; completed save dump
+save_dump_done_message:
+.asc "DUMPING CART SAVE   $"
+.asc "    DUMP COMPLETE!  $"
+.asc $ff
+
+
+; beginning to dump rom
+rom_dump_message:
+.asc "DUMPING CART ROM... $"
+.asc "   PRESS B TO CANCEL$"
+.asc "  BANK: 00 OF 00    $"
+.asc $ff
+
+; canceled rom dump
+rom_dump_canceled_message:
+.asc "DUMPING CART ROM    $"
+.asc "    DUMP CANCELED   $"
+.asc $ff
+
+; completed rom dump
+rom_dump_done_message:
+.asc "DUMPING CART ROM    $"
+.asc "    DUMP COMPLETE!  $"
 .asc $ff
 
 ; the message that tells you something isnt done yet
