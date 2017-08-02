@@ -21,9 +21,9 @@ Once you've inserted another cartridge to work on, here are some things you can 
  * PROGRAM FLASH: Accepts bytes from the serial port and programs them sequentially to the flash chip on a flash cartridge.
  * SERIAL BOOT: Reads in 8KB from the serial port and writes it sequentially into WRAM, then branches execution to the beginning of WRAM.
  * EXECUTE CART: Branch execution to the cartridge and run it normally.
- * MBC: Choose which memory bank controller is in the cartridge, or leave as AUTO to auto detect.
- * ROM SIZE: Choose the size of the ROM image on the cartridge, or leave as AUTO to auto detect.
- * SRAM SIZE: Choose the size of the SRAM image on the cartridge, or leave as AUTO to auto detect.
+ * MEMORY ACCESS: Arbitrary read and write memory access over serial protocol: [future explanation here].
+ * SERIAL CONSOLE: Basic TTY emulation over serial port. Button presses are sent as ASCII characters as well.
+ * SETTINGS: Enter the settings menu for boot and serial options.
 
 For data transfers between the Gameboy and your PC you will need some way of interfacing your PC with the serial port on your Gameboy, such as a Gameboy to UART cable: [future explanation here].
 
@@ -39,10 +39,10 @@ Run `make` to assemble.
 
 ## Programs
 
-`romloader.gb` is the inital ROM image which copies the gbboot image into WRAM and branches execution to it.
+`romloader.gb` is the inital ROM image which copies the GB BOOT image into WRAM and branches execution to it.
 `gbboot.bin` is the main GB BOOT program. It is a 2KB WRAM image and is first loaded by `romloader.gb`.
 `serialloader.bin` is the program that offers the SERIAL BOOT functionality. It is first loaded into VRAM (with the LCD disabled) by `gbboot.bin` and then loads a WRAM image over serial into WRAM and branches execution to it from there.
 
 ## Todo
 
-Basically everything so far. XD It's only just begun, silly.
+So far only basic cart info, cart branching, and rom and save dumping have been implemented.

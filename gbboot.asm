@@ -3,13 +3,11 @@
 ; this is the main utility program of the project
 
 ; other ideas:
-; custom palette that carry into dmg games
 ; preconditioning the system state before branching
-; sub menus are gonna be needed for all this haha
-; serial console mode, in and out
 ; sound test mode
-; arbitrary reads and writes
 ; image viewer
+; color palette picker for dmg games
+; settings: master/slave clock, speed, cgb speed
 
 ; tell wla-gb about the WRAM slots that it is executed from
 .memorymap
@@ -199,10 +197,112 @@ dump_rom:
 	ld	hl, $9800			; where to print the text
 	call	print_list			; print it
 
-	; prepare to dump
+	; get number of banks onto b
+	ld	hl, $0148		; rom size location
+	ld	a, (hl)			; grab the byte
+	cp	$01			; 64kb
+	jr	nz, +
+	ld	b, 4
+	jp	++
++	cp	$02			; 128kb
+	jr	nz, +
+	ld	b, 8
+	jp	++
++	cp	$03			; 256kb
+	jr	nz, +
+	ld	b, 16
+	jp	++
++	cp	$04			; 512kb
+	jr	nz, +
+	ld	b, 32
+	jp	++
++	cp	$05			; 1mb
+	jr	nz, +
+	ld	b, 64
+	jp	++
++	cp	$06			; 2mb
+	jr	nz, +
+	ld	b, 128
+	jp	++
++	cp	$07			; 4mb
+	jr	nz, +
+	ld	b, 0			; 256
+	jp	++
++	cp	$52			; 1.1mb
+	jr	nz, +
+	ld	b, 72
+	jp	++
++	cp	$53			; 1.2mb
+	jr	nz, +
+	ld	b, 80
+	jp	++
++	cp	$54			; 1.5mb
+	jr	nz, +
+	ld	b, 86
+	jp	++
++	ld	b, 2
+++	ld	c, 0			; keep track of current bank
+	push	bc			; save the bank count
+
+	; print the total number of banks
+	ld	a, b			; grab the total banks
+	and	$f0			; get the upper digit
+	swap	a			; yeah
+	ld	hl, str_buf		; the string buffer
+	ldi	(hl), a			; store the number in str_buf
+	ld	a, b			; grab the total banks again
+	and	$0f			; this time get the lower digit
+	ld	(hl), a			; store the number in str_buf
+	ld	hl, $9852		; where to print the text
+	ld	b, 2			; how long the string is
+	ld	de, str_buf		; the source of the string to print
+	call	print_string		; print it
+
+	; dump home bank
 	ld	hl, $0000		; source
-	ld	bc, $8000		; size
+	ld	bc, $4000		; size
 	call	dump			; dump it
+
+	; dump the rest of the banks
+	pop	bc			; grab the remaning banks
+	dec	b			; mark off the home bank
+-	inc	c			; on the next bank
+
+	; bank switch
+	ld	a, c			; grab the bank number
+	ld	de, $2000		; gonna bank switch
+	ld	(de), a			; switch to bank c
+	srl	a			; grab upper 3 bits
+	srl	a			; grab upper 3 bits
+	srl	a			; grab upper 3 bits
+	srl	a			; grab upper 3 bits
+	srl	a			; grab upper 3 bits
+	ld	de, $4000		; write upper bits of bank
+	ld	(de), a			; for mbc1 support
+	push	bc			; save the bank count
+
+	; print the current bank progress
+	ld	a, c			; grab the current bank
+	and	$f0			; get the upper digit
+	swap	a			; yeah
+	ld	hl, str_buf		; the string buffer
+	ldi	(hl), a			; store the number in str_buf
+	ld	a, c			; grab the curent bank again
+	and	$0f			; this time get the lower digit
+	ld	(hl), a			; store the number in str_buf
+	call	wait_for_lcd		; wait for the screen
+	ld	hl, $984a		; where to print the text
+	ld	b, 2			; how long the string is
+	ld	de, str_buf		; the source of the string to print
+	call	print_string		; print it
+
+	; dump this bank
+	ld	hl, $4000		; source
+	ld	bc, $4000		; size
+	call	dump			; dump it
+	pop	bc			; grab remaining bank count
+	dec	b			; 1 bank down, n to go
+	jr	nz, -			; more, yes?
 
 	; done
 	call	wait_for_lcd			; wait for the screen
@@ -219,10 +319,78 @@ dump_save:
 	ld	hl, $9800			; where to print the text
 	call	print_list			; print it
 
-	; prepare to dump
+	; prepare for cart ram access
+	ld	a, $0a			; ram enable value
+	ld	hl, $0000		; ram enable location
+	ld	(hl), a			; enable ram
+	ld	a, $01			; ram banking mode value
+	ld	hl, $6000		; banking mode location
+	ld	(hl), a			; tell mbc1 we care about ram banks
+
+	; get number of banks onto b
+	ld	hl, $0149		; ram size location
+	ld	a, (hl)			; grab the byte
+	cp	$03			; 4 banks
+	jr	nz, +
+	ld	b, 4
+	jp	++
++	ld	b, 1
+++	ld	c, 0			; keep track of current bank
+	push	bc			; save the bank count
+
+	; print the total number of banks
+	ld	a, b			; grab the total banks
+	and	$f0			; get the upper digit
+	swap	a			; yeah
+	ld	hl, str_buf		; the string buffer
+	ldi	(hl), a			; store the number in str_buf
+	ld	a, b			; grab the total banks again
+	and	$0f			; this time get the lower digit
+	ld	(hl), a			; store the number in str_buf
+	ld	hl, $9852		; where to print the text
+	ld	b, 2			; how long the string is
+	ld	de, str_buf		; the source of the string to print
+	call	print_string		; print it
+
+	; dump the banks
+	pop	bc			; grab the remaning banks
+
+	; bank switch
+-	ld	a, c			; grab the bank number
+	ld	de, $4000		; gonna bank switch
+	ld	(de), a			; switch to bank c
+	push	bc			; save the bank count
+
+	; print the current bank progress
+	ld	a, c			; grab the current bank
+	and	$f0			; get the upper digit
+	swap	a			; yeah
+	ld	hl, str_buf		; the string buffer
+	ldi	(hl), a			; store the number in str_buf
+	ld	a, c			; grab the curent bank again
+	and	$0f			; this time get the lower digit
+	ld	(hl), a			; store the number in str_buf
+	call	wait_for_lcd		; wait for the screen
+	ld	hl, $984a		; where to print the text
+	ld	b, 2			; how long the string is
+	ld	de, str_buf		; the source of the string to print
+	call	print_string		; print it
+
+	; dump this bank
 	ld	hl, $a000		; source
 	ld	bc, $2000		; size
 	call	dump			; dump it
+	pop	bc			; grab remaining bank count
+	inc	c			; on the next bank
+	dec	b			; 1 bank down, n to go
+	jr	nz, -			; more, yes?
+
+	; tidy up with the mbc
+	xor	a			; reseting things to 0
+	ld	hl, $0000		; ram enable location
+	ld	(hl), a			; disable ram
+	ld	hl, $6000		; banking mode location
+	ld	(hl), a			; tell mbc1 we don't care about ram banks anymore
 
 	; done
 	call	wait_for_lcd			; wait for the screen
@@ -532,7 +700,8 @@ print_string:
 
 	; otherwise just copy the char
 	ldi	(hl), a			; put the char in place
-	jr	-			; next char
+	dec	b			; and make sure we dont go too far
+	jr	nz, -			; next char if not done
 
 	; done here
 	ret
@@ -793,9 +962,9 @@ menu_items:
 .asc "   PROGRAM FLASH$"
 .asc "   SERIAL BOOT$"
 .asc "   EXECUTE CART$"
-.asc "   MBC:$"
-.asc "   ROM SIZE:$"
-.asc "   SRAM SIZE:$"
+.asc "   MEMORY ACCESS$"
+.asc "   SERIAL CONSOLE$"
+.asc "   SETTINGS$"
 .asc "$"
 .asc "GB BOOT BY MEGALOLER$"
 .asc $ff
@@ -804,7 +973,7 @@ menu_items:
 save_dump_message:
 .asc "DUMPING CART SAVE...$"
 .asc "   PRESS B TO CANCEL$"
-.asc "  BANK: 00 OF 00    $"
+.asc "  BANK: 0X00 OF 0X00$"
 .asc $ff
 
 ; canceled save dump
@@ -824,7 +993,7 @@ save_dump_done_message:
 rom_dump_message:
 .asc "DUMPING CART ROM... $"
 .asc "   PRESS B TO CANCEL$"
-.asc "  BANK: 00 OF 00    $"
+.asc "  BANK: 0X00 OF 0X00$"
 .asc $ff
 
 ; canceled rom dump
