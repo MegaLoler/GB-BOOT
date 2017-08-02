@@ -271,6 +271,220 @@ execute_cart:
 
 ; choose to display information from the inserted cart header
 cart_info:
+	; print the cgb compatibility
+	call	wait_for_lcd			; wait for the screen
+	ld	hl, $0143			; cgb flag location in cart header
+	ld	a, (hl)				; grab the cgb flag
+	bit	7, a				; check to see if its cgb compatible
+	jr	z, +				; skip if not cgb
+
+	; print "CGB"
+	ld	de, cgb_label			; the string
+	ld	hl, $9820			; destination in vram
+	call	print_string			; print it
+	jr	++				; done
+
+	; print "DMG"
++	ld	de, dmg_label			; the string
+	ld	hl, $9820			; destination in vram
+	call	print_string			; print it
+
+	; print cartridge type, hardware in cartridge
+++	ld	hl, $0147			; cart type location
+	ld	a, (hl)				; grab the byte
+	ld	hl, $9824			; destination in vram
+	cp	$00				; rom only
+	jr	nz, +
+	ld	de, cart_type_00		; the string
+	jp	++
++	cp	$01				; mbc1
+	jr	nz, +
+	ld	de, cart_type_01		; the string
+	jp	++
++	cp	$02				; mbc1+ram
+	jr	nz, +
+	ld	de, cart_type_02		; the string
+	jp	++
++	cp	$03				; mbc1+ram+bat
+	jr	nz, +
+	ld	de, cart_type_03		; the string
+	jp	++
++	cp	$05				; mbc2
+	jr	nz, +
+	ld	de, cart_type_05		; the string
+	jp	++
++	cp	$06				; mbc2+bat
+	jr	nz, +
+	ld	de, cart_type_06		; the string
+	jp	++
++	cp	$08				; ram+ram
+	jr	nz, +
+	ld	de, cart_type_08		; the string
+	jp	++
++	cp	$09				; ram+ram+bat
+	jr	nz, +
+	ld	de, cart_type_09		; the string
+	jp	++
++	cp	$0b				; mmm01
+	jr	nz, +
+	ld	de, cart_type_0b		; the string
+	jp	++
++	cp	$0c				; mmm01+ram
+	jr	nz, +
+	ld	de, cart_type_0c		; the string
+	jp	++
++	cp	$0d				; mmm01+ram+bat
+	jr	nz, +
+	ld	de, cart_type_0d		; the string
+	jp	++
++	cp	$0f				; mbc3+tim+bat
+	jr	nz, +
+	ld	de, cart_type_0f		; the string
+	jp	++
++	cp	$10				; mbc3+tim+ram+bat
+	jr	nz, +
+	ld	de, cart_type_10		; the string
+	jp	++
++	cp	$11				; mbc3
+	jr	nz, +
+	ld	de, cart_type_11		; the string
+	jp	++
++	cp	$12				; mbc3+ram
+	jr	nz, +
+	ld	de, cart_type_12		; the string
+	jp	++
++	cp	$13				; mbc3+ram+bat
+	jr	nz, +
+	ld	de, cart_type_13		; the string
+	jp	++
++	cp	$15				; mbc4
+	jr	nz, +
+	ld	de, cart_type_15		; the string
+	jp	++
++	cp	$16				; mbc4+ram
+	jr	nz, +
+	ld	de, cart_type_16		; the string
+	jp	++
++	cp	$17				; mbc4+ram+bat
+	jr	nz, +
+	ld	de, cart_type_17		; the string
+	jp	++
++	cp	$19				; mbc5
+	jr	nz, +
+	ld	de, cart_type_19		; the string
+	jp	++
++	cp	$1a				; mbc5+ram
+	jr	nz, +
+	ld	de, cart_type_1a		; the string
+	jp	++
++	cp	$1b				; mbc5+ram+bat
+	jr	nz, +
+	ld	de, cart_type_1b		; the string
+	jp	++
++	cp	$1c				; mbc5+rum
+	jr	nz, +
+	ld	de, cart_type_1c		; the string
+	jp	++
++	cp	$1d				; mbc5+rum+ram
+	jr	nz, +
+	ld	de, cart_type_1d		; the string
+	jp	++
++	cp	$1e				; mbc5+rum+ram+bat
+	jr	nz, +
+	ld	de, cart_type_1e		; the string
+	jp	++
++	cp	$fc				; pocket camera
+	jr	nz, +
+	ld	de, cart_type_fc		; the string
+	jp	++
++	cp	$fd				; bandai tama5
+	jr	nz, +
+	ld	de, cart_type_fd		; the string
+	jp	++
++	cp	$fe				; huc3
+	jr	nz, +
+	ld	de, cart_type_fe		; the string
+	jp	++
++	cp	$ff				; huc1+ram+bat
+	jr	nz, +
+	ld	de, cart_type_ff		; the string
+	jp	++
++	ld	de, cart_type_unknown		; the string
+++	call	print_string			; print it
+
+	; print rom size
+	ld	hl, $0148			; rom size location
+	ld	a, (hl)				; grab the byte
+	ld	hl, $9840			; destination in vram
+	cp	$00				; 32kb
+	jr	nz, +
+	ld	de, rom_size_00			; the string
+	jp	++
++	cp	$01				; 64kb
+	jr	nz, +
+	ld	de, rom_size_01			; the string
+	jp	++
++	cp	$02				; 128kb
+	jr	nz, +
+	ld	de, rom_size_02			; the string
+	jp	++
++	cp	$03				; 256kb
+	jr	nz, +
+	ld	de, rom_size_03			; the string
+	jp	++
++	cp	$04				; 512kb
+	jr	nz, +
+	ld	de, rom_size_04			; the string
+	jp	++
++	cp	$05				; 1mb
+	jr	nz, +
+	ld	de, rom_size_05			; the string
+	jp	++
++	cp	$06				; 2mb
+	jr	nz, +
+	ld	de, rom_size_06			; the string
+	jp	++
++	cp	$07				; 4mb
+	jr	nz, +
+	ld	de, rom_size_07			; the string
+	jp	++
++	cp	$52				; 1.1mb
+	jr	nz, +
+	ld	de, rom_size_52			; the string
+	jp	++
++	cp	$53				; 1.2mb
+	jr	nz, +
+	ld	de, rom_size_53			; the string
+	jp	++
++	cp	$54				; 1.5mb
+	jr	nz, +
+	ld	de, rom_size_54			; the string
+	jp	++
++	ld	de, rom_size_unknown		; the string
+++	call	print_string			; print it
+
+	; print ram size
+	ld	hl, $0149			; ram size location
+	ld	a, (hl)				; grab the byte
+	ld	hl, $984a			; destination in vram
+	cp	$00				; no ram
+	jr	nz, +
+	ld	de, ram_size_00			; the string
+	jp	++
++	cp	$01				; 2kb
+	jr	nz, +
+	ld	de, ram_size_01			; the string
+	jp	++
++	cp	$02				; 8kb
+	jr	nz, +
+	ld	de, ram_size_02			; the string
+	jp	++
++	cp	$03				; 32kb
+	jr	nz, +
+	ld	de, ram_size_03			; the string
+	jp	++
++	ld	de, ram_size_unknown		; the string
+++	call	print_string			; print it
 
 ; prints out the title of the inserted cartridge on the top line
 print_cart_title:
@@ -635,3 +849,101 @@ unimplemented_message:
 ; some various lone strings
 cart_name_label:
 .asc "NAME:$"
+cgb_label:
+.asc "CGB $"
+dmg_label:
+.asc "DMG $"
+cart_type_00:
+.asc "ROM             $"
+cart_type_01:
+.asc "MBC1            $"
+cart_type_02:
+.asc "MBC1 RAM        $"
+cart_type_03:
+.asc "MBC1 RAM BAT    $"
+cart_type_05:
+.asc "MBC2            $"
+cart_type_06:
+.asc "MBC2 BAT        $"
+cart_type_08:
+.asc "ROM RAM         $"
+cart_type_09:
+.asc "RAM RAM BAT     $"
+cart_type_0b:
+.asc "MMM01           $"
+cart_type_0c:
+.asc "MMM01 RAM       $"
+cart_type_0d:
+.asc "MMM01 RAM BAT   $"
+cart_type_0f:
+.asc "MBC3 TIM BAT    $"
+cart_type_10:
+.asc "MBC3 TIM RAM BAT$"
+cart_type_11:
+.asc "MBC3            $"
+cart_type_12:
+.asc "MBC3 RAM        $"
+cart_type_13:
+.asc "MBC3 RAM BAT    $"
+cart_type_15:
+.asc "MBC4            $"
+cart_type_16:
+.asc "MBC4 RAM        $"
+cart_type_17:
+.asc "MBC4 RAM BAT    $"
+cart_type_19:
+.asc "MBC5            $"
+cart_type_1a:
+.asc "MBC5 RAM        $"
+cart_type_1b:
+.asc "MBC5 RAM BAT    $"
+cart_type_1c:
+.asc "MBC5 RUM        $"
+cart_type_1d:
+.asc "MBC5 RUM RAM    $"
+cart_type_1e:
+.asc "MBC5 RUM RAM BAT$"
+cart_type_fc:
+.asc "POCKET CAMERA   $"
+cart_type_fd:
+.asc "BANDAI TAMA5    $"
+cart_type_fe:
+.asc "HUC3            $"
+cart_type_ff:
+.asc "HUC1 RAM BAT    $"
+cart_type_unknown:
+.asc "UNKNOWN CART    $"
+rom_size_00:
+.asc "32KB ROM  $"
+rom_size_01:
+.asc "64KB ROM  $"
+rom_size_02:
+.asc "128KB ROM $"
+rom_size_03:
+.asc "256KB ROM $"
+rom_size_04:
+.asc "512KB ROM $"
+rom_size_05:
+.asc "1MB ROM   $"
+rom_size_06:
+.asc "2MB ROM   $"
+rom_size_07:
+.asc "4MB ROM   $"
+rom_size_52:
+.asc "1.1MB ROM $"
+rom_size_53:
+.asc "1.2MB ROM $"
+rom_size_54:
+.asc "1.5MB ROM $"
+rom_size_unknown:
+.asc "UNKNN ROM $"
+ram_size_00:
+.asc "NO RAM    $"
+ram_size_01:
+.asc "2KB RAM   $"
+ram_size_02:
+.asc "8KB RAM   $"
+ram_size_03:
+.asc "32KB RAM  $"
+ram_size_unknown:
+.asc "UNKNN RAM $"
